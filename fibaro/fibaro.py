@@ -10,9 +10,6 @@ import csv
 import os
 import glob
 
-### variables ###
-print()
-
 ### functions ###
 
 # functionalities to implement:
@@ -26,7 +23,7 @@ def serial_number(data):
     else:
         return 0
 
-# name of HC, rooms, sections
+# name of HC, rooms(, sections)
 # name of HC
 def name_hc(data):
     key_value = "hcName"
@@ -36,20 +33,19 @@ def name_hc(data):
     else:
         return 0
 
-# this one hard
-# is not finished
-# if there is sectionID, id in file
-# TODO: names of rooms
+
+# names of rooms
 def name_rooms(data):
     key_value = "name"
     rooms = []
-    if "sectionID" & "id" in data:
-        for j in data["id"]:
-            ID = data["id"]
-            if "defaultSensors" in data:
-                for i in data[key_value]:
-                    rooms.append(data[key_value])
-                return rooms
+    for item in data:
+        if "sectionID" in item:
+            if "defaultSensors" in item:
+                for key, value in item.items():
+                    if key == key_value:
+                        rooms.append(value)
+    if len(rooms) > 0:
+        return rooms
     else:
         return 0
 
@@ -78,7 +74,7 @@ def mac_hc(data):
     else:
         return 0
 
-# TODO: software version of HC
+# software version of HC
 def software_hc(data):
     key_value = "softVersion"
     if key_value in data:
@@ -90,65 +86,77 @@ def software_hc(data):
         return 0
 
 
-# TODO: HC users and connected devices/sensors
-# TODO: HC users
+# HC users and connected devices/sensors
+# HC users
 def users(data):
     key_value = "name"
-    users = []
-    if "email" in data:
-        if "id" in data:
-            if "type" in data:
-                for i in data["id"]:
-                    users.append(data[key_value])
-                return users
+    user_list = []
+    for item in data:
+        if "deviceRights" in item:
+            if "email" in item:
+                for key, value in item.items():
+                    if key == key_value:
+                        user_list.append(value)
+    if len(user_list) > 0:
+        return user_list
     else:
         return 0
 
-# TODO: HC devices/sensors
-# not working
+# HC devices/sensors
 def devices(data):
     key_value_1 = "type"
     key_value_2 = "name"
     devices = {}
-    if "remoteGatewayId" in data:
-        print("no")
-        if "id" in data:
-            if "roomID" in data:
-                print("fu")
-                for i in data["id"]:
-                    key = data[key_value_1]
-                    value = data[key_value_2]
-                    devices[key] = value
-                return devices
+    for item in data:
+        if "remoteGatewayId" in item:
+            if "roomID" in item:
+                for key, value in item.items():
+                    if key == key_value_2:
+                        name = value
+                        devices[name] = 0
+                    if key == key_value_1:
+                        devices[name] = value
+    if len(devices) > 0:
+        return devices
     else:
         return 0
 
-# TODO: single out events file, convert to csv, convert timestamps
-# TODO: identify
+# single out events file, convert to csv, convert timestamps
+# identify
 def events(data):
-    if "id" & "type" & "timestamp" & "deviceID" & "oldValue" & "newValue" in data:
-        return 1
-    else:
-        return 0
+    for item in data:
+        #print(item)
+        if "oldValue" in item:
+            if "newValue" in item:
+                if "timestamp" in item:
+                    return 1
+        else:
+            return 0 
 
-# TODO: convert timestamps to humanly readable
-def timestamps(file):
-    with open(file) as json_file:
+
+# convert timestamps to humanly readable
+def timestamps(file, path):
+    with open(file, "r") as json_file:
         jsondata = json.load(json_file)
 
-    for i in jsondata:
-        if "timestamp" in jsondata:
-            time = jsondata["timestamp"]
-            datetime_time = str(datetime.date.fromtimestamp(time))
-            jsondata["timestamp"] = datetime_time    
+    for item in jsondata:
+        for key, value in item.items():
+            if key == "timestamp":
+                time = value
+                date_time = datetime.datetime.fromtimestamp(time)
+                serialized_date = date_time.isoformat()
+                item[key] = serialized_date
+
+    with open(path + "event_timestamps.json", "w") as f:
+        json.dump(jsondata, f, indent=4)
 
 
-# TODO: convert to csv
-def json_to_csv(file_path):
-    with open(file_path) as json_file:
+# convert to csv
+def json_to_csv(file_path, file):
+    with open(file_path + file) as json_file:
         jsondata = json.load(json_file)
     
-    data_file = open("events.csv", 'w', newline='')
+    data_file = open(file_path + "events.csv", 'w', newline='')
     csv_writer = csv.writer(data_file)
     
     count = 0
@@ -160,21 +168,14 @@ def json_to_csv(file_path):
         csv_writer.writerow(data.values())
     
     data_file.close()
-    return
 
-# TODO: open JSON files recursively
-path = input("input absolute base path of folder: ")
-# ext = (".json", ".csv")
+# open JSON files recursively
+# path has to be with trailing /
+path = input("input absolute base path of folder (add trailing /): ")
 for file in glob.glob(os.path.join(path, '*.json')):
-#for file in os.listdir(path):
-    #if file.endswith(ext):
-    #if file.endswith(".json"):
     try:
         with open(file) as f:
-        #f = open(file)
             data = json.load(f)
-        #print(data)
-            print(software_hc(data))
             if serial_number(data) != 0:
                 serialNumber = serial_number(data)
             if name_hc(data) != 0:
@@ -185,32 +186,34 @@ for file in glob.glob(os.path.join(path, '*.json')):
                 MAC_hc = mac_hc(data)
             if name_rooms(data) != 0:
                 rooms = name_rooms(data)
-            # this one seems like it should work, but doesn't
             if software_hc(data) != 0:
                 software = software_hc(data)
             if users(data) != 0:
                 user = users(data)
             if devices(data) != 0:
                 device = devices(data)
+            if events(data) == 1:
+                event_file = file
+            
     except:
         pass
         
-        #for i in data['some_shit']:
-        #    print(i)
-    #else:
-     #   continue
 
-#with open("fibaro/general_settings.json") as f:
- #   data = json.load(f)
+print("home center serial number: ", serialNumber)
+print("home center name: ", HCname)
+# TODO: make this output prettier
+print("rooms: ", rooms)
+print("home center IP: ", IP_hc)
+print("home center MAC: ", MAC_hc)
+print("home center software version: ", software)
+# TODO: make this output prettier
+print("home center users: ", user)
+# TODO: make this output prettier
+print("home center devices: ", device)
+print("file containing events: ", event_file)
+timestamps(event_file, path)
+print("file containing events with human readable timestamps at: ", path + "event_timestamps.json")
+json_to_csv(path, "event_timestamps.json")
+print("file containing events with human readable timestamps, converted to csv, at: ", path + "events.csv")
 
-#print(serial_number(data))
-
-print(serialNumber)
-print(HCname)
-# rooms don't work yet
-#print(rooms)
-print(IP_hc)
-print(MAC_hc)
-#print(software)
-#print(user)
-#print(device)
+# TODO: make report/file with extracted data
